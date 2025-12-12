@@ -1,0 +1,273 @@
+/* ========================================
+   LET DOWN - Radiohead Lyric Visualizer
+   Styles for an emotional, immersive experience
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+/* Canvas Container */
+#canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+}
+
+#canvas-container canvas {
+    display: block;
+}
+
+/* Lyrics Container */
+#lyrics-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#lyric-text {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 300;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+    max-width: 80vw;
+    line-height: 1.4;
+    text-shadow: 
+        0 0 20px rgba(255, 255, 255, 0.3),
+        0 0 40px rgba(100, 150, 255, 0.2);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#lyric-text.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#lyric-text.jitter {
+    animation: jitter 0.1s infinite;
+}
+
+#lyric-text.shatter {
+    animation: shatter 0.5s forwards;
+}
+
+#lyric-text.intense {
+    font-weight: 400;
+    text-shadow: 
+        0 0 30px rgba(255, 255, 255, 0.6),
+        0 0 60px rgba(100, 150, 255, 0.4),
+        0 0 100px rgba(100, 150, 255, 0.2);
+}
+
+/* Jitter Animation - Holding back tears */
+@keyframes jitter {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+    50% { transform: translate(1px, -1px) rotate(0.5deg); }
+    75% { transform: translate(-1px, -1px) rotate(-0.5deg); }
+}
+
+/* Shatter Animation */
+@keyframes shatter {
+    0% { 
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        filter: blur(0);
+    }
+    50% {
+        transform: translateY(50px) scale(1.1);
+        opacity: 0.5;
+        filter: blur(2px);
+    }
+    100% { 
+        transform: translateY(200px) scale(0.8);
+        opacity: 0;
+        filter: blur(10px);
+    }
+}
+
+/* White Flash Overlay */
+#flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: white;
+    opacity: 0;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* Start Overlay */
+#start-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    transition: opacity 1s ease, visibility 1s ease;
+}
+
+#start-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.start-content {
+    text-align: center;
+    color: white;
+}
+
+.start-content h1 {
+    font-size: clamp(3rem, 10vw, 8rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 40px rgba(100, 150, 255, 0.3);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+.start-content .artist {
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.2em;
+    opacity: 0.6;
+    margin-bottom: 3rem;
+}
+
+.start-content .instruction {
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 0.8;
+    animation: fadeInOut 2s ease-in-out infinite;
+}
+
+.start-content .note {
+    font-size: 0.8rem;
+    font-weight: 300;
+    opacity: 0.4;
+    margin-top: 2rem;
+    line-height: 1.6;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        opacity: 0.8;
+        text-shadow: 0 0 40px rgba(100, 150, 255, 0.3);
+    }
+    50% { 
+        opacity: 1;
+        text-shadow: 0 0 60px rgba(100, 150, 255, 0.5);
+    }
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.9; }
+}
+
+/* Glitch Effect for Hysterical State */
+.glitch-container {
+    position: relative;
+}
+
+.glitch-container::before,
+.glitch-container::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+}
+
+.glitch-container::before {
+    color: #ff0040;
+    animation: glitch-1 0.2s infinite;
+    clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+}
+
+.glitch-container::after {
+    color: #00ffff;
+    animation: glitch-2 0.2s infinite;
+    clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+}
+
+@keyframes glitch-1 {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(-3px, 3px); }
+    40% { transform: translate(3px, -3px); }
+    60% { transform: translate(-3px, -3px); }
+    80% { transform: translate(3px, 3px); }
+}
+
+@keyframes glitch-2 {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(3px, -3px); }
+    40% { transform: translate(-3px, 3px); }
+    60% { transform: translate(3px, 3px); }
+    80% { transform: translate(-3px, -3px); }
+}
+
+/* Screen Tear Effect */
+.screen-tear {
+    animation: screenTear 0.1s infinite;
+}
+
+@keyframes screenTear {
+    0%, 100% { 
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    }
+    25% {
+        clip-path: polygon(0 0, 100% 0, 100% 30%, 0 32%, 0 34%, 100% 32%, 100% 100%, 0 100%);
+    }
+    50% {
+        clip-path: polygon(0 0, 100% 0, 100% 60%, 0 58%, 0 62%, 100% 60%, 100% 100%, 0 100%);
+    }
+    75% {
+        clip-path: polygon(0 0, 100% 0, 100% 45%, 0 47%, 0 49%, 100% 47%, 100% 100%, 0 100%);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #lyric-text {
+        font-size: clamp(1.5rem, 6vw, 2.5rem);
+        max-width: 90vw;
+    }
+    
+    .start-content h1 {
+        letter-spacing: 0.1em;
+    }
+}
