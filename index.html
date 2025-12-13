@@ -935,90 +935,76 @@
         }
 
         // ========================================
-        // Wing Shape Generator - Clear Angel Wings Shape
-        // Designed to match reference image silhouette
+        // Wing Shape Generator - VOLUMETRIC "Bone & Feather" System
+        // Dense, fluffy, organic angel wings
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
 
-            // Wing dimensions (larger and clearer)
-            const wingWidth = 55;   // Total wingspan per side
-            const wingHeight = 40;  // Vertical extent
-            const wingDepth = 8;    // Z depth for 3D effect
+            // Dimensions
+            const wingSpan = 60;   // Lebar sayap
+            const wingHeight = 45; // Tinggi bulu kebawah
+            const curvature = 15;  // Kelengkungan memeluk tubuh
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
 
-                // Determine which wing (left = -1, right = +1)
+                // Side: -1 (Left), 1 (Right)
                 const side = i < count / 2 ? -1 : 1;
-                const wingIndex = i < count / 2 ? i : i - count / 2;
-                const particlesPerWing = count / 2;
 
-                // Use parametric t along the wing (0 = root, 1 = tip)
-                const t = wingIndex / particlesPerWing;
+                // RANDOMIZED Position (0.0 to 1.0) along the wing bone
+                // Using pow(..., 1.2) pushes more particles to the center (denser base)
+                const t = Math.pow(Math.random(), 1.2);
 
-                // Create multiple feather "rows" that fan out
-                const numRows = 25;  // Number of feather rows
-                const row = Math.floor(t * numRows);
-                const posInRow = (t * numRows) % 1;
+                // 1. THE BONE SHAPE (Top Edge Curve)
+                // It goes out and slightly up, like an arch
+                const boneX = t * wingSpan;
+                const boneY = Math.sin(t * Math.PI) * 10 + (t * 5);
+                const boneZ = Math.cos(t * Math.PI * 0.5) * curvature;
 
-                // === WING SHAPE: Curved edge with fanning feathers ===
-                // The wing curves from top-inner to bottom-outer like in the reference
+                // 2. FEATHER DROP (Hanging down from bone)
+                // Random length for each particle to create "shaggy" look
+                // Outer feathers (t near 1) are longer, inner are shorter
+                const dropProgress = Math.random();
+                const maxDrop = wingHeight * (0.5 + t * 0.8); // Longer at tips
 
-                // Row angle: top rows point more upward, bottom rows point more downward
-                // Range: from +30° (top) to -60° (bottom)
-                const rowProgress = row / numRows;
-                const rowAngle = (0.5 - rowProgress * 1.5); // radians, ~30° to -60°
+                // Curve the feathers inward as they go down
+                const featherY = -dropProgress * maxDrop;
+                const featherZCurve = dropProgress * 5;
 
-                // Feather length: longer at middle, shorter at top and bottom edges
-                // Creates the classic wing silhouette curve
-                const lengthCurve = Math.sin(rowProgress * Math.PI); // 0->1->0
-                const extraLength = rowProgress < 0.5
-                    ? rowProgress * 0.8  // Upper feathers grow
-                    : (1 - rowProgress) * 0.3; // Lower feathers shrink faster
-                const featherLength = (0.3 + lengthCurve * 0.7 + extraLength) * wingWidth;
+                // 3. FLUFF/NOISE (Crucial for "Padat" look)
+                // Add random thickness so it's not a flat plane
+                const thickness = 4 * (1 - t); // Thicker at base, thinner at tip
+                const fluffX = (Math.random() - 0.5) * 2;
+                const fluffY = (Math.random() - 0.5) * 2;
+                const fluffZ = (Math.random() - 0.5) * thickness;
 
-                // Position along the feather (0 = base, 1 = tip)
-                const featherPos = posInRow;
+                // 4. COMBINE
+                let x = boneX + fluffX;
+                let y = boneY + featherY + fluffY;
+                let z = boneZ + featherZCurve + fluffZ;
 
-                // Calculate base position (where feather attaches)
-                // This creates the curved inner edge of the wing
-                const baseX = 3 + rowProgress * 8;  // Slight spread from center
-                const baseY = wingHeight * 0.4 - rowProgress * wingHeight * 0.8;  // Top to bottom
+                // Apply Side & Center Offset
+                x = x * side;
+                x += side * 2; // Gap in middle
+                y += 10;       // Lift up slightly
 
-                // Calculate feather tip position using angle
-                const tipX = baseX + Math.cos(rowAngle) * featherLength;
-                const tipY = baseY + Math.sin(rowAngle) * featherLength * 0.5;
+                // 5. ANIMATION (Gentle Flap / Breathing)
+                // Rotate entire wing around shoulder pivot (0,0,0)
+                const flapSpeed = 1.5;
+                const flapAmp = 0.2 * (1 - t * 0.5); // Tips flap more
+                const flapAngle = Math.sin(time * flapSpeed) * flapAmp * side;
 
-                // Interpolate along the feather
-                let x = baseX + (tipX - baseX) * featherPos;
-                let y = baseY + (tipY - baseY) * featherPos;
+                const cosA = Math.cos(flapAngle);
+                const sinA = Math.sin(flapAngle);
 
-                // Add slight curve to each feather (bows downward slightly)
-                const featherCurve = Math.sin(featherPos * Math.PI) * 2 * (1 - rowProgress * 0.5);
-                y -= featherCurve;
+                // Rotate Y and X around Z axis
+                const finalX = x * cosA - y * sinA;
+                const finalY = x * sinA + y * cosA;
 
-                // Z depth: outer feathers are further back, creates 3D bowl shape
-                let z = -featherPos * wingDepth * (0.5 + rowProgress * 0.5);
-
-                // Add density variation within feathers for natural look
-                const densityJitter = 0.8;
-                x += (Math.random() - 0.5) * densityJitter;
-                y += (Math.random() - 0.5) * densityJitter;
-                z += (Math.random() - 0.5) * densityJitter * 0.5;
-
-                // Apply side (left/right wing)
-                x = side * x;
-
-                // Center the wings vertically
-                y += 5;
-
-                // Very subtle shimmer
-                const shimmerX = Math.sin(particlePhases[i] + time * 0.2) * 0.1;
-                const shimmerY = Math.cos(particlePhases[i] + time * 0.15) * 0.1;
-
-                targetPositions[i3] = x + shimmerX;
-                targetPositions[i3 + 1] = y + shimmerY;
+                // Assign
+                targetPositions[i3] = finalX;
+                targetPositions[i3 + 1] = finalY;
                 targetPositions[i3 + 2] = z;
             }
         }
