@@ -935,48 +935,48 @@
         }
 
         // ========================================
-        // Wing Shape Generator - VOLUMETRIC "Bone & Feather" System
-        // Dense, fluffy, organic angel wings
+        // Wing Shape Generator - MAJESTIC ANGEL WINGS
+        // Grand scale, structured, powerful silhouette
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
 
-            // Dimensions
-            const wingSpan = 60;   // Lebar sayap
-            const wingHeight = 45; // Tinggi bulu kebawah
-            const curvature = 15;  // Kelengkungan memeluk tubuh
+            // MAJESTIC DIMENSIONS
+            const wingSpan = 160;    // Huge span (was 60)
+            const wingHeight = 100;  // Long drape (was 45)
+            const curvature = 30;    // Deep 3D curve
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
-
-                // Side: -1 (Left), 1 (Right)
                 const side = i < count / 2 ? -1 : 1;
 
-                // RANDOMIZED Position (0.0 to 1.0) along the wing bone
-                // Using pow(..., 1.2) pushes more particles to the center (denser base)
-                const t = Math.pow(Math.random(), 1.2);
+                // Position along wing (0 = center, 1 = tip)
+                // pow(..., 1.5) keeps density near the body/center
+                const t = Math.pow(Math.random(), 1.5);
 
-                // 1. THE BONE SHAPE (Top Edge Curve)
-                // It goes out and slightly up, like an arch
+                // 1. THE ARCHED BONE (Dramatic Curve)
+                // Go UP high at the elbow (t ~ 0.3), then extend OUT
                 const boneX = t * wingSpan;
-                const boneY = Math.sin(t * Math.PI) * 10 + (t * 5);
+                // Sine wave to create the "Shoulder/Elbow" arch
+                const boneY = Math.sin(t * Math.PI * 0.8) * 30 + (t * 10);
                 const boneZ = Math.cos(t * Math.PI * 0.5) * curvature;
 
-                // 2. FEATHER DROP (Hanging down from bone)
-                // Random length for each particle to create "shaggy" look
-                // Outer feathers (t near 1) are longer, inner are shorter
-                const dropProgress = Math.random();
-                const maxDrop = wingHeight * (0.5 + t * 0.8); // Longer at tips
+                // 2. LONG FEATHER DRAPE
+                // Outer feathers hang down much longer
+                const dropProgress = Math.random(); // 0 to 1 down the feather
+                // Profile: Short at base, Long at middle/tip
+                const featherLength = wingHeight * (0.2 + t * 0.8 + Math.sin(t * Math.PI) * 0.4);
 
-                // Curve the feathers inward as they go down
-                const featherY = -dropProgress * maxDrop;
-                const featherZCurve = dropProgress * 5;
+                const featherY = -dropProgress * featherLength;
 
-                // 3. FLUFF/NOISE (Crucial for "Padat" look)
-                // Add random thickness so it's not a flat plane
-                const thickness = 4 * (1 - t); // Thicker at base, thinner at tip
-                const fluffX = (Math.random() - 0.5) * 2;
-                const fluffY = (Math.random() - 0.5) * 2;
+                // Curve feathers inward/backward at the bottom tips
+                const featherZCurve = dropProgress * 15 * t;
+
+                // 3. CONTROLLED VOLUME (Less "Cloudy")
+                // Thinner at tips, thicker at base
+                const thickness = 10 * (1 - t);
+                const fluffX = (Math.random() - 0.5) * 5; // Horizontal scattering
+                const fluffY = (Math.random() - 0.5) * 5; // Vertical scattering
                 const fluffZ = (Math.random() - 0.5) * thickness;
 
                 // 4. COMBINE
@@ -984,25 +984,23 @@
                 let y = boneY + featherY + fluffY;
                 let z = boneZ + featherZCurve + fluffZ;
 
-                // Apply Side & Center Offset
+                // Apply Side & Lift
                 x = x * side;
-                x += side * 2; // Gap in middle
-                y += 10;       // Lift up slightly
+                x += side * 5; // Gap from spine
+                y += 15;       // Lift wings higher on screen
 
-                // 5. ANIMATION (Gentle Flap / Breathing)
-                // Rotate entire wing around shoulder pivot (0,0,0)
-                const flapSpeed = 1.5;
-                const flapAmp = 0.2 * (1 - t * 0.5); // Tips flap more
+                // 5. GENTLE BREATHING ANIMATION
+                const flapSpeed = 1.2;
+                const flapAmp = 0.15 * t; // Only tips flap significantly
                 const flapAngle = Math.sin(time * flapSpeed) * flapAmp * side;
 
                 const cosA = Math.cos(flapAngle);
                 const sinA = Math.sin(flapAngle);
 
-                // Rotate Y and X around Z axis
+                // Rotate around shoulder
                 const finalX = x * cosA - y * sinA;
                 const finalY = x * sinA + y * cosA;
 
-                // Assign
                 targetPositions[i3] = finalX;
                 targetPositions[i3 + 1] = finalY;
                 targetPositions[i3 + 2] = z;
