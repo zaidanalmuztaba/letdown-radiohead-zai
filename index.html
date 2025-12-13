@@ -935,65 +935,69 @@
         }
 
         // ========================================
-        // Wing Shape Generator - ANGEL WING
-        // Based on reference image structure
+        // Wing Shape Generator - CLEAR FEATHER LINES
+        // Deterministic feather structure, no random blob
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
+            const particlesPerWing = count / 2;
+
+            // WING PARAMETERS
+            const numFeathers = 25;           // Number of feathers per wing
+            const particlesPerFeather = Math.floor(particlesPerWing / numFeathers);
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
 
                 // Which wing: -1 = left, +1 = right
                 const side = i < count / 2 ? -1 : 1;
+                const wingIndex = i < count / 2 ? i : i - particlesPerWing;
 
-                // === WING STRUCTURE ===
-                // The wing has a curved "spine" from shoulder going out and down
-                // Feathers attach along this spine and radiate outward
+                // Which feather (0 to numFeathers-1)
+                const featherNum = Math.floor(wingIndex / particlesPerFeather);
+                // Position along this feather (0 to 1)
+                const featherT = (wingIndex % particlesPerFeather) / particlesPerFeather;
 
-                // Position along the spine (0 = shoulder/top, 1 = bottom)
-                const spineT = Math.random();
+                // Normalized feather position (0 = top feather, 1 = bottom feather)
+                const featherProgress = featherNum / (numFeathers - 1);
 
-                // SPINE CURVE: starts near body, curves out then down
-                // This creates the curved leading edge of the wing
-                const spineX = 5 + Math.sin(spineT * Math.PI * 0.5) * 25;  // curves outward
-                const spineY = 20 - spineT * 45;  // goes from top (20) to bottom (-25)
+                // === FEATHER ANGLE ===
+                // Top feathers point UP-OUT, bottom feathers point DOWN-OUT
+                // Range: +40° at top to -70° at bottom
+                const angleStart = 0.4;   // ~23° up
+                const angleEnd = -1.2;    // ~69° down
+                const featherAngle = angleStart + (angleEnd - angleStart) * featherProgress;
 
-                // FEATHER: radiates outward from spine
-                // Upper feathers point up-outward, lower feathers point down-outward
-                // This is the KEY to the angel wing shape
+                // === FEATHER LENGTH ===
+                // Longest at 40% from top, shorter at edges (classic wing curve)
+                const lengthPeak = 0.4;  // Peak at 40% down
+                const lengthCurve = 1 - Math.pow((featherProgress - lengthPeak) / 0.6, 2);
+                const featherLength = 30 + Math.max(0, lengthCurve) * 50;  // 30 to 80
 
-                // Feather angle depends on position on spine
-                // Top of spine (spineT=0): feathers point UP and OUT (angle ~45°)
-                // Bottom of spine (spineT=1): feathers point DOWN and OUT (angle ~-60°)
-                const featherAngle = (0.5 - spineT * 1.2) * Math.PI / 2;  // radians
+                // === ATTACHMENT POINT (base of feather) ===
+                // This traces the leading edge of the wing
+                const baseX = 3 + featherProgress * 10;  // slight outward movement
+                const baseY = 25 - featherProgress * 50; // from +25 down to -25
 
-                // Feather length: longest at middle of wing, shorter at top and bottom
-                // This creates the classic wing silhouette curve
-                const lengthCurve = Math.sin(spineT * Math.PI);  // peaks at middle
-                const featherLength = 15 + lengthCurve * 45;  // 15 to 60 units
-
-                // Position along the feather (0 = base at spine, 1 = tip)
-                const featherT = Math.random();
+                // === POSITION ALONG FEATHER ===
                 const dist = featherT * featherLength;
 
                 // Calculate final position
-                let x = spineX + Math.cos(featherAngle) * dist * side;
-                let y = spineY + Math.sin(featherAngle) * dist;
-                let z = -featherT * 5 - spineT * 3;  // feathers curve back slightly
+                let x = baseX + Math.cos(featherAngle) * dist;
+                let y = baseY + Math.sin(featherAngle) * dist;
+                let z = -featherT * 3 - featherProgress * 2;  // slight depth
 
                 // Apply side (mirror for left/right wing)
-                x = Math.abs(x) * side;
+                x = x * side;
 
-                // Add MINIMAL jitter for slight natural variation
-                // Keep this small to maintain clear feather lines!
-                x += (Math.random() - 0.5) * 0.8;
-                y += (Math.random() - 0.5) * 0.8;
-                z += (Math.random() - 0.5) * 0.5;
+                // ZERO jitter - keep lines perfectly clear!
+                // Only tiny variation for slight organic feel
+                x += (Math.random() - 0.5) * 0.3;
+                y += (Math.random() - 0.5) * 0.3;
 
-                // Gentle breathing animation
-                const breathe = Math.sin(time * 0.5) * 0.3;
-                y += breathe * featherT;
+                // Very subtle breathing
+                const breathe = Math.sin(time * 0.5) * 0.2 * featherT;
+                y += breathe;
 
                 targetPositions[i3] = x;
                 targetPositions[i3 + 1] = y;
@@ -1260,11 +1264,11 @@
 
             particleGeometry.attributes.position.needsUpdate = true;
 
-            // Enhanced bloom for wing glow
+            // MINIMAL bloom - keep wings SHARP and clear!
             grayscalePass.uniforms['amount'].value = THREE.MathUtils.lerp(
                 grayscalePass.uniforms['amount'].value, 0.0, deltaTime * 2
             );
-            bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, 2.0, deltaTime * 2);
+            bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, 0.3, deltaTime * 3);
             rgbShiftPass.uniforms['amount'].value *= 0.95;
 
             grainOverlay.classList.remove('active');
