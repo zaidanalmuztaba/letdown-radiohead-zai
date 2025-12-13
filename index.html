@@ -1218,7 +1218,7 @@
             cometOrb.position.set(0, cometOrbY, 0);
 
             // AGGRESSIVE Squash & Stretch - Warp Drive Effect
-            const maxTime = 3.0; // Faster squeeze
+            const maxTime = 0.5; // INSTANT warp effect (was 3.0)
             const t = Math.min(sceneTime / maxTime, 1.0); // Normalized 0-1
 
             // Scale X/Z (Thickness): Lerp from 1.0 down to 0.02 (needle thin)
@@ -1387,6 +1387,11 @@
             rgbShiftPass.uniforms['angle'].value = time * 3;
 
             cameraShake = Math.max(cameraShake * 0.98, 0.3);
+
+            // CHAOTIC CAMERA: Zoom in/out panic effect
+            camera.position.z = 50 + Math.sin(time * 50) * 2;
+            camera.fov = 75 + Math.random() * 5;
+            camera.updateProjectionMatrix();
         }
 
         function updateVoid(deltaTime, time) {
@@ -1462,6 +1467,10 @@
                 document.body.classList.add('capcut-mode');
             } else {
                 document.body.classList.remove('capcut-mode');
+                // Flash transition when entering COLLAPSE from RUNNER
+                if (newScene === SCENES.COLLAPSE) {
+                    flashScreen(1.0);
+                }
             }
 
             // Reset scene-specific states
