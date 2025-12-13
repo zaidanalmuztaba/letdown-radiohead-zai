@@ -935,74 +935,63 @@
         }
 
         // ========================================
-        // Wing Shape Generator - MAJESTIC ANGEL WINGS
-        // Grand scale, structured, powerful silhouette
+        // Wing Shape Generator - EAGLE WING SILHOUETTE
+        // Clear feather rows fanning outward
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
 
-            // MAJESTIC DIMENSIONS
-            const wingSpan = 160;    // Huge span (was 60)
-            const wingHeight = 100;  // Long drape (was 45)
-            const curvature = 30;    // Deep 3D curve
+            // EAGLE WING DIMENSIONS
+            const wingSpan = 80;     // Width of each wing
+            const wingHeight = 50;   // Height from top to bottom
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
                 const side = i < count / 2 ? -1 : 1;
 
-                // Position along wing (0 = center, 1 = tip)
-                // pow(..., 1.5) keeps density near the body/center
-                const t = Math.pow(Math.random(), 1.5);
+                // Create FEATHER ROWS that fan out like eagle wings
+                const numFeathers = 20;  // Number of primary feathers
+                const featherIndex = Math.random(); // Random position
+                const featherNum = Math.floor(featherIndex * numFeathers);
+                const posInFeather = Math.random(); // Position along feather
 
-                // 1. THE ARCHED BONE (Dramatic Curve)
-                // Go UP high at the elbow (t ~ 0.3), then extend OUT
-                const boneX = t * wingSpan;
-                // Sine wave to create the "Shoulder/Elbow" arch
-                const boneY = Math.sin(t * Math.PI * 0.8) * 30 + (t * 10);
-                const boneZ = Math.cos(t * Math.PI * 0.5) * curvature;
+                // Feather angle: top feathers point UP-OUT, bottom feathers point DOWN-OUT
+                // Creates the classic spread eagle silhouette
+                const angleRange = Math.PI * 0.7; // Total spread angle
+                const startAngle = Math.PI * 0.15; // Start slightly above horizontal
+                const featherAngle = startAngle - (featherNum / numFeathers) * angleRange;
 
-                // 2. LONG FEATHER DRAPE
-                // Outer feathers hang down much longer
-                const dropProgress = Math.random(); // 0 to 1 down the feather
-                // Profile: Short at base, Long at middle/tip
-                const featherLength = wingHeight * (0.2 + t * 0.8 + Math.sin(t * Math.PI) * 0.4);
+                // Feather length: longest in middle, shorter at edges (wing silhouette curve)
+                const lengthProgress = featherNum / numFeathers;
+                const lengthCurve = Math.sin(lengthProgress * Math.PI); // Peak at middle
+                const featherLength = wingSpan * (0.4 + lengthCurve * 0.6);
 
-                const featherY = -dropProgress * featherLength;
+                // Position along the feather (0 = base near body, 1 = tip)
+                const dist = posInFeather * featherLength;
 
-                // Curve feathers inward/backward at the bottom tips
-                const featherZCurve = dropProgress * 15 * t;
+                // Base attachment point (where feather connects to wing bone)
+                const baseX = 5 + lengthProgress * 8;
+                const baseY = 15 - lengthProgress * 25;
 
-                // 3. CONTROLLED VOLUME (Less "Cloudy")
-                // Thinner at tips, thicker at base
-                const thickness = 10 * (1 - t);
-                const fluffX = (Math.random() - 0.5) * 5; // Horizontal scattering
-                const fluffY = (Math.random() - 0.5) * 5; // Vertical scattering
-                const fluffZ = (Math.random() - 0.5) * thickness;
+                // Calculate feather position
+                let x = baseX + Math.cos(featherAngle) * dist;
+                let y = baseY + Math.sin(featherAngle) * dist;
+                let z = -posInFeather * 8 - lengthProgress * 3; // Depth curve
 
-                // 4. COMBINE
-                let x = boneX + fluffX;
-                let y = boneY + featherY + fluffY;
-                let z = boneZ + featherZCurve + fluffZ;
+                // Add slight variation for natural look (but not too much)
+                x += (Math.random() - 0.5) * 1.5;
+                y += (Math.random() - 0.5) * 1.5;
+                z += (Math.random() - 0.5) * 1;
 
-                // Apply Side & Lift
+                // Apply side (left/right wing)
                 x = x * side;
-                x += side * 5; // Gap from spine
-                y += 15;       // Lift wings higher on screen
 
-                // 5. GENTLE BREATHING ANIMATION
-                const flapSpeed = 1.2;
-                const flapAmp = 0.15 * t; // Only tips flap significantly
-                const flapAngle = Math.sin(time * flapSpeed) * flapAmp * side;
+                // Subtle breathing animation (very gentle)
+                const breathe = Math.sin(time * 0.8) * 0.5;
+                y += breathe * posInFeather;
 
-                const cosA = Math.cos(flapAngle);
-                const sinA = Math.sin(flapAngle);
-
-                // Rotate around shoulder
-                const finalX = x * cosA - y * sinA;
-                const finalY = x * sinA + y * cosA;
-
-                targetPositions[i3] = finalX;
-                targetPositions[i3 + 1] = finalY;
+                targetPositions[i3] = x;
+                targetPositions[i3 + 1] = y;
                 targetPositions[i3 + 2] = z;
             }
         }
@@ -1247,53 +1236,17 @@
 
             generateWingTargets(time);
 
-            // === PHASE 1: GATHER (0 - 0.8s) ===
-            // All particles rush toward center (0,0,0)
-            const gatherDuration = 0.8;
-
-            // === PHASE 2: GROW (0.8s - 2.5s) ===
-            // Wings expand outward from center
-            const growStart = 0.8;
-            const growDuration = 1.7;
-
-            // Calculate phase progress
-            const gatherProgress = Math.min(sceneTime / gatherDuration, 1.0);
-            const growProgress = sceneTime > growStart
-                ? Math.min((sceneTime - growStart) / growDuration, 1.0)
-                : 0;
-
-            // Easing functions for smoother motion
-            const easeOutQuad = (t) => t * (2 - t);
-            const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-            const gatherEased = easeOutQuad(gatherProgress);
-            const growEased = easeInOutCubic(growProgress);
+            // INSTANT wing formation - no slow gather/grow
+            // Wings appear immediately and directly
+            const formSpeed = 8 * deltaTime; // Fast lerp to target
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
 
-                // During gather phase: lerp toward center (0,0,0)
-                // During grow phase: lerp toward wing targets scaled by growth
-
-                if (sceneTime < growStart) {
-                    // GATHER PHASE: Pull everything toward center
-                    const lerpSpeed = 6 * deltaTime; // Fast gathering
-                    positions[i3] = THREE.MathUtils.lerp(positions[i3], 0, lerpSpeed);
-                    positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], 0, lerpSpeed);
-                    positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], 0, lerpSpeed);
-                } else {
-                    // GROW PHASE: Expand from center to wing shape
-                    const lerpSpeed = 4 * deltaTime;
-
-                    // Scale targets by growth progress
-                    const scaledTargetX = targetPositions[i3] * growEased;
-                    const scaledTargetY = targetPositions[i3 + 1] * growEased;
-                    const scaledTargetZ = targetPositions[i3 + 2] * growEased;
-
-                    positions[i3] = THREE.MathUtils.lerp(positions[i3], scaledTargetX, lerpSpeed);
-                    positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], scaledTargetY, lerpSpeed);
-                    positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], scaledTargetZ, lerpSpeed);
-                }
+                // Direct lerp to wing shape
+                positions[i3] = THREE.MathUtils.lerp(positions[i3], targetPositions[i3], formSpeed);
+                positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], targetPositions[i3 + 1], formSpeed);
+                positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], targetPositions[i3 + 2], formSpeed);
 
                 velocities[i3] = 0;
                 velocities[i3 + 1] = 0;
@@ -1302,7 +1255,7 @@
 
             particleGeometry.attributes.position.needsUpdate = true;
 
-            // Enhanced bloom for majestic wing glow
+            // Enhanced bloom for wing glow
             grayscalePass.uniforms['amount'].value = THREE.MathUtils.lerp(
                 grayscalePass.uniforms['amount'].value, 0.0, deltaTime * 2
             );
@@ -1314,7 +1267,7 @@
             runnerParticles.visible = false;
             tunnelParticles.visible = false;
             particles.visible = true;
-            cometOrb.visible = false; // Hide comet from previous scene
+            cometOrb.visible = false;
 
             targetCameraY = 0;
             targetCameraRotationX = 0;
