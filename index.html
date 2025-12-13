@@ -935,60 +935,65 @@
         }
 
         // ========================================
-        // Wing Shape Generator - EAGLE WING SILHOUETTE
-        // Clear feather rows fanning outward
+        // Wing Shape Generator - ANGEL WING
+        // Based on reference image structure
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
 
-            // EAGLE WING DIMENSIONS
-            const wingSpan = 80;     // Width of each wing
-            const wingHeight = 50;   // Height from top to bottom
-
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
+
+                // Which wing: -1 = left, +1 = right
                 const side = i < count / 2 ? -1 : 1;
 
-                // Create FEATHER ROWS that fan out like eagle wings
-                const numFeathers = 20;  // Number of primary feathers
-                const featherIndex = Math.random(); // Random position
-                const featherNum = Math.floor(featherIndex * numFeathers);
-                const posInFeather = Math.random(); // Position along feather
+                // === WING STRUCTURE ===
+                // The wing has a curved "spine" from shoulder going out and down
+                // Feathers attach along this spine and radiate outward
 
-                // Feather angle: top feathers point UP-OUT, bottom feathers point DOWN-OUT
-                // Creates the classic spread eagle silhouette
-                const angleRange = Math.PI * 0.7; // Total spread angle
-                const startAngle = Math.PI * 0.15; // Start slightly above horizontal
-                const featherAngle = startAngle - (featherNum / numFeathers) * angleRange;
+                // Position along the spine (0 = shoulder/top, 1 = bottom)
+                const spineT = Math.random();
 
-                // Feather length: longest in middle, shorter at edges (wing silhouette curve)
-                const lengthProgress = featherNum / numFeathers;
-                const lengthCurve = Math.sin(lengthProgress * Math.PI); // Peak at middle
-                const featherLength = wingSpan * (0.4 + lengthCurve * 0.6);
+                // SPINE CURVE: starts near body, curves out then down
+                // This creates the curved leading edge of the wing
+                const spineX = 5 + Math.sin(spineT * Math.PI * 0.5) * 25;  // curves outward
+                const spineY = 20 - spineT * 45;  // goes from top (20) to bottom (-25)
 
-                // Position along the feather (0 = base near body, 1 = tip)
-                const dist = posInFeather * featherLength;
+                // FEATHER: radiates outward from spine
+                // Upper feathers point up-outward, lower feathers point down-outward
+                // This is the KEY to the angel wing shape
 
-                // Base attachment point (where feather connects to wing bone)
-                const baseX = 5 + lengthProgress * 8;
-                const baseY = 15 - lengthProgress * 25;
+                // Feather angle depends on position on spine
+                // Top of spine (spineT=0): feathers point UP and OUT (angle ~45°)
+                // Bottom of spine (spineT=1): feathers point DOWN and OUT (angle ~-60°)
+                const featherAngle = (0.5 - spineT * 1.2) * Math.PI / 2;  // radians
 
-                // Calculate feather position
-                let x = baseX + Math.cos(featherAngle) * dist;
-                let y = baseY + Math.sin(featherAngle) * dist;
-                let z = -posInFeather * 8 - lengthProgress * 3; // Depth curve
+                // Feather length: longest at middle of wing, shorter at top and bottom
+                // This creates the classic wing silhouette curve
+                const lengthCurve = Math.sin(spineT * Math.PI);  // peaks at middle
+                const featherLength = 15 + lengthCurve * 45;  // 15 to 60 units
 
-                // Add slight variation for natural look (but not too much)
-                x += (Math.random() - 0.5) * 1.5;
-                y += (Math.random() - 0.5) * 1.5;
-                z += (Math.random() - 0.5) * 1;
+                // Position along the feather (0 = base at spine, 1 = tip)
+                const featherT = Math.random();
+                const dist = featherT * featherLength;
 
-                // Apply side (left/right wing)
-                x = x * side;
+                // Calculate final position
+                let x = spineX + Math.cos(featherAngle) * dist * side;
+                let y = spineY + Math.sin(featherAngle) * dist;
+                let z = -featherT * 5 - spineT * 3;  // feathers curve back slightly
 
-                // Subtle breathing animation (very gentle)
-                const breathe = Math.sin(time * 0.8) * 0.5;
-                y += breathe * posInFeather;
+                // Apply side (mirror for left/right wing)
+                x = Math.abs(x) * side;
+
+                // Add MINIMAL jitter for slight natural variation
+                // Keep this small to maintain clear feather lines!
+                x += (Math.random() - 0.5) * 0.8;
+                y += (Math.random() - 0.5) * 0.8;
+                z += (Math.random() - 0.5) * 0.5;
+
+                // Gentle breathing animation
+                const breathe = Math.sin(time * 0.5) * 0.3;
+                y += breathe * featherT;
 
                 targetPositions[i3] = x;
                 targetPositions[i3 + 1] = y;
