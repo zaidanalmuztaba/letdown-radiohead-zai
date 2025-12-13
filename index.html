@@ -935,16 +935,20 @@
         }
 
         // ========================================
-        // Wing Shape Generator - CLEAR FEATHER LINES
-        // Deterministic feather structure, no random blob
+        // Wing Shape Generator - ORGANIC ANGEL WINGS
+        // 3-Layer feathers with curved bone structure
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
             const particlesPerWing = count / 2;
 
-            // WING PARAMETERS
-            const numFeathers = 25;           // Number of feathers per wing
-            const particlesPerFeather = Math.floor(particlesPerWing / numFeathers);
+            // SCALE - Large wings to fill screen
+            const SCALE = 40;
+
+            // Divide particles into 3 feather layers
+            const covertCount = Math.floor(particlesPerWing * 0.30);    // 30% - top layer
+            const secondaryCount = Math.floor(particlesPerWing * 0.35); // 35% - middle
+            const primaryCount = particlesPerWing - covertCount - secondaryCount; // 35% - outer
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
@@ -953,54 +957,97 @@
                 const side = i < count / 2 ? -1 : 1;
                 const wingIndex = i < count / 2 ? i : i - particlesPerWing;
 
-                // Which feather (0 to numFeathers-1)
-                const featherNum = Math.floor(wingIndex / particlesPerFeather);
-                // Position along this feather (0 to 1)
-                const featherT = (wingIndex % particlesPerFeather) / particlesPerFeather;
+                // Determine which layer this particle belongs to
+                let layer, layerIndex, layerSize;
+                if (wingIndex < covertCount) {
+                    layer = 0; // Coverts
+                    layerIndex = wingIndex;
+                    layerSize = covertCount;
+                } else if (wingIndex < covertCount + secondaryCount) {
+                    layer = 1; // Secondaries
+                    layerIndex = wingIndex - covertCount;
+                    layerSize = secondaryCount;
+                } else {
+                    layer = 2; // Primaries
+                    layerIndex = wingIndex - covertCount - secondaryCount;
+                    layerSize = primaryCount;
+                }
 
-                // Normalized feather position (0 = top feather, 1 = bottom feather)
-                const featherProgress = featherNum / (numFeathers - 1);
+                // === BONE STRUCTURE (Curved arm) ===
+                // Uses sine wave to create shoulder → elbow → wrist curve
+                // t goes from 0 (shoulder) to 1 (wingtip)
+                const boneT = layerIndex / layerSize;
 
-                // === FEATHER ANGLE ===
-                // Top feathers point UP-OUT, bottom feathers point DOWN-OUT
-                // Range: +40° at top to -70° at bottom
-                const angleStart = 0.4;   // ~23° up
-                const angleEnd = -1.2;    // ~69° down
-                const featherAngle = angleStart + (angleEnd - angleStart) * featherProgress;
+                // Bone curve: starts at center, goes UP at shoulder, OUT at elbow, then extends
+                const boneX = boneT * 1.8; // Extends outward
+                const boneY = Math.sin(boneT * Math.PI * 0.6) * 0.4 + (1 - boneT) * 0.3; // Arch up then down
+                const boneZ = -Math.cos(boneT * Math.PI * 0.3) * 0.2; // Subtle Z curve
 
-                // === FEATHER LENGTH ===
-                // Longest at 40% from top, shorter at edges (classic wing curve)
-                const lengthPeak = 0.4;  // Peak at 40% down
-                const lengthCurve = 1 - Math.pow((featherProgress - lengthPeak) / 0.6, 2);
-                const featherLength = 30 + Math.max(0, lengthCurve) * 50;  // 30 to 80
+                // === FEATHER PROPERTIES BY LAYER ===
+                let featherLength, featherAngle, featherCurl, noiseAmount;
 
-                // === ATTACHMENT POINT (base of feather) ===
-                // This traces the leading edge of the wing
-                const baseX = 3 + featherProgress * 10;  // slight outward movement
-                const baseY = 25 - featherProgress * 50; // from +25 down to -25
+                if (layer === 0) {
+                    // COVERTS - Short, rounded, top of wing
+                    featherLength = 0.15 + boneT * 0.1;  // Short
+                    featherAngle = -0.3 - boneT * 0.5;   // Point slightly down
+                    featherCurl = 0.3;                    // Moderate curl
+                    noiseAmount = 0.04;                   // More fluffy
+                } else if (layer === 1) {
+                    // SECONDARIES - Medium, middle layer
+                    featherLength = 0.25 + boneT * 0.25; // Medium
+                    featherAngle = -0.5 - boneT * 0.7;   // Point more downward
+                    featherCurl = 0.5;                    // More curl
+                    noiseAmount = 0.03;
+                } else {
+                    // PRIMARIES - Long, curved, outer/tip feathers
+                    featherLength = 0.4 + boneT * 0.5;   // Long
+                    featherAngle = -0.7 - boneT * 0.8;   // Point strongly downward/outward
+                    featherCurl = 0.7;                    // Strong curl
+                    noiseAmount = 0.02;                   // Cleaner lines
+                }
 
-                // === POSITION ALONG FEATHER ===
-                const dist = featherT * featherLength;
+                // === POSITION ALONG FEATHER (with quadratic curve) ===
+                const featherT = Math.random(); // 0 = base, 1 = tip
 
-                // Calculate final position
-                let x = baseX + Math.cos(featherAngle) * dist;
-                let y = baseY + Math.sin(featherAngle) * dist;
-                let z = -featherT * 3 - featherProgress * 2;  // slight depth
+                // Quadratic curve - feather bends DOWN at the tip
+                const curlEffect = featherT * featherT * featherCurl;
 
-                // Apply side (mirror for left/right wing)
+                // Calculate feather position with curve
+                let featherX = Math.cos(featherAngle) * featherT * featherLength;
+                let featherY = Math.sin(featherAngle) * featherT * featherLength - curlEffect * 0.3;
+                let featherZ = -featherT * 0.1 - curlEffect * 0.15; // Curl back in Z
+
+                // === COMBINE BONE + FEATHER ===
+                let x = (boneX + featherX) * SCALE;
+                let y = (boneY + featherY) * SCALE;
+                let z = (boneZ + featherZ) * SCALE;
+
+                // === VOLUME NOISE (Fluffy barbs) ===
+                const noise = noiseAmount * SCALE;
+                x += (Math.random() - 0.5) * noise * 2;
+                y += (Math.random() - 0.5) * noise * 2;
+                z += (Math.random() - 0.5) * noise;
+
+                // === Z-AXIS WRAP (Wings cup around viewer) ===
+                const wrapFactor = 0.15;
+                z -= Math.abs(x / SCALE) * wrapFactor * SCALE;
+
+                // === APPLY SIDE (Mirror for left/right) ===
                 x = x * side;
 
-                // ZERO jitter - keep lines perfectly clear!
-                // Only tiny variation for slight organic feel
-                x += (Math.random() - 0.5) * 0.3;
-                y += (Math.random() - 0.5) * 0.3;
+                // === BREATHING ANIMATION ===
+                const breathePhase = time * 0.8;
+                const breatheAmp = 0.02 * SCALE * (1 + featherT * 0.5);
+                const flap = Math.sin(breathePhase) * breatheAmp * (layer === 2 ? 1.5 : 1);
+                y += flap * boneT;
 
-                // Very subtle breathing
-                const breathe = Math.sin(time * 0.5) * 0.2 * featherT;
-                y += breathe;
+                // Slight rotation for more organic feel
+                const rotateZ = Math.sin(breathePhase * 0.5) * 0.03 * boneT;
+                const rotatedX = x * Math.cos(rotateZ) - y * Math.sin(rotateZ);
+                const rotatedY = x * Math.sin(rotateZ) + y * Math.cos(rotateZ);
 
-                targetPositions[i3] = x;
-                targetPositions[i3 + 1] = y;
+                targetPositions[i3] = rotatedX;
+                targetPositions[i3 + 1] = rotatedY;
                 targetPositions[i3 + 2] = z;
             }
         }
