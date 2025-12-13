@@ -40,7 +40,7 @@
             height: 100vh;
             z-index: 3;
             pointer-events: none;
-            opacity: 0;
+            opacity: 0.15;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
             mix-blend-mode: overlay;
             transition: opacity 0.5s ease;
@@ -99,6 +99,21 @@
 
         #lyric-text.visible {
             opacity: 1;
+            animation: textEntrance 0.8s ease-out forwards;
+        }
+
+        @keyframes textEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.9);
+                filter: blur(10px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
         }
 
         /* Glitch Effect */
@@ -184,7 +199,15 @@
             font-size: 1.2rem;
             letter-spacing: 0.2em;
             opacity: 0.5;
-            margin-bottom: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .start-content .credit {
+            font-size: 0.8rem;
+            letter-spacing: 0.15em;
+            opacity: 0.35;
+            margin-bottom: 2.5rem;
+            font-style: italic;
         }
 
         .start-content .instruction {
@@ -221,12 +244,106 @@
             color: rgba(255, 255, 255, 0.3);
             z-index: 50;
         }
+
+        /* ========================================
+           CAPCUT OLD FILM MODE - 1920s Horror Look
+           ======================================== */
+        body.capcut-mode {
+            background: #1a1a1a;
+        }
+
+        body.capcut-mode #canvas-container canvas {
+            filter: invert(1) grayscale(1) contrast(3.5) brightness(1.1);
+        }
+
+        body.capcut-mode #lyric-text {
+            color: #000000;
+            text-shadow:
+                0 0 10px #000000,
+                0 0 20px #333333,
+                0 0 40px #555555;
+        }
+
+        body.capcut-mode #grain-overlay {
+            opacity: 0.5;
+            mix-blend-mode: multiply;
+        }
+
+        /* Film Scratches Overlay */
+        #scratch-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 4;
+            pointer-events: none;
+            opacity: 0;
+            background: repeating-linear-gradient(90deg,
+                    transparent 0px,
+                    transparent 3px,
+                    rgba(255, 255, 255, 0.03) 3px,
+                    rgba(255, 255, 255, 0.03) 4px,
+                    transparent 4px,
+                    transparent 20px,
+                    rgba(0, 0, 0, 0.05) 20px,
+                    rgba(0, 0, 0, 0.05) 21px);
+            mix-blend-mode: overlay;
+            transition: opacity 0.5s ease;
+        }
+
+        body.capcut-mode #scratch-overlay {
+            opacity: 1;
+            animation: scratchFlicker 0.08s steps(3) infinite, scratchMove 0.5s linear infinite;
+        }
+
+        @keyframes scratchFlicker {
+            0% {
+                opacity: 0.6;
+            }
+
+            33% {
+                opacity: 0.9;
+            }
+
+            66% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes scratchMove {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(30px);
+            }
+        }
+
+        /* Vignette for old film look */
+        body.capcut-mode::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+            pointer-events: none;
+            z-index: 6;
+        }
     </style>
 </head>
 
 <body>
     <div id="canvas-container"></div>
     <div id="grain-overlay"></div>
+    <div id="scratch-overlay"></div>
     <div id="flash-overlay"></div>
 
     <div id="lyrics-container">
@@ -237,12 +354,19 @@
         <div class="start-content">
             <h1>LET DOWN</h1>
             <p class="artist">RADIOHEAD</p>
+            <p class="credit">made by Zai</p>
             <p class="instruction">[ CLICK TO BEGIN ]</p>
             <p class="note">Scene-Based Visual Experience</p>
         </div>
     </div>
 
     <div id="scene-indicator"></div>
+
+    <!-- Audio Player - Place your MP3 file in the 'audio' folder as 'letdown.mp3' -->
+    <audio id="audio-player" preload="auto">
+        <source src="audio/letdown.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
 
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -265,6 +389,7 @@
         const SCENES = {
             RUNNER: 'runner',      // New! Phantom Runner intro
             COLLAPSE: 'collapse',
+            ASCENT: 'ascent',      // NEW! Bouncing back - particles reverse upward
             WINGS: 'wings',
             HYSTERICAL: 'hysterical',
             VOID: 'void'
@@ -331,15 +456,16 @@
         // Configuration
         // ========================================
         const CONFIG = {
-            particleCount: 10000,
-            runnerParticleCount: 800,  // Dense cluster for phantom
-            tunnelParticleCount: 5000, // Tunnel streaks
+            particleCount: 25000,  // Increased for denser wings
+            runnerParticleCount: 2500,  // Denser cluster for solid black phantom
+            tunnelParticleCount: 8000, // Dense tunnel streaks for speed lines
             gravity: 50,
             floorY: -30,
             bounceCoefficient: 0.5,
             wingSpan: 25,
             wingHeight: 15,
-            trailOpacity: 0.08  // For afterimage effect
+            trailOpacity: 0.03,  // For afterimage effect - ghostly/blurry look
+            zoomBlurScale: 1.003  // Zoom blur for runner scene
         };
 
         // ========================================
@@ -365,6 +491,10 @@
         // Runner phantom
         let runnerPositions, runnerBasePositions;
 
+        // Ascent scene - Comet orb
+        let cometOrb, cometOrbY = -100;
+        let ascentInitialized = false;
+
         // Camera state
         let cameraShake = 0;
         let targetCameraY = 0;
@@ -380,38 +510,42 @@
         const startOverlay = document.getElementById('start-overlay');
         const sceneIndicator = document.getElementById('scene-indicator');
         const grainOverlay = document.getElementById('grain-overlay');
+        const audioPlayer = document.getElementById('audio-player');
 
         // ========================================
         // Updated Lyric Sequence
         // ========================================
         const LYRIC_SEQUENCE = [
-            // Intro buildup with runner
+            // SCENE 1: RUNNER (Intro)
             { time: 0, text: "", scene: SCENES.RUNNER },
 
-            // First loop
-            { time: 3, text: "you know..." },
-            { time: 6, text: "you know where you are with..." },
+            // LINE 1: Start slightly earlier to catch the breath
+            { time: 3.0, text: "you know..." },
 
-            // Second loop
-            { time: 10, text: "you know..." },
-            { time: 13, text: "you know where you are with..." },
+            // LINE 2: Let Line 1 breathe longer
+            { time: 6.2, text: "you know where you are with" },
 
-            // The Drop
-            { time: 17, text: "FLOOR COLLAPSES", scene: SCENES.COLLAPSE, flash: true },
-            { time: 19, text: "floating..." },
-            { time: 22, text: "bouncing back" },
+            // LINE 3: The Repetition - holds for 3.5s until drop
+            { time: 9.5, text: "you know where you are with" },
 
-            // Wings
-            { time: 26, text: "and one day..." },
-            { time: 29, text: "I AM GONNA GROW WINGS", scene: SCENES.WINGS, flash: true },
+            // SCENE 2: COLLAPSE (The Drop - anchor point)
+            { time: 14.0, text: "FLOOR COLLAPSES", scene: SCENES.COLLAPSE, flash: true, intense: true },
+            { time: 16.5, text: "floating" },
 
-            // Chaos
-            { time: 38, text: "a chemical reaction" },
-            { time: 42, text: "HYSTERICAL AND USELESS", scene: SCENES.HYSTERICAL, glitch: true },
-            { time: 50, text: "hysterical and useless", glitch: true },
+            // SCENE 3: ASCENT (The Orb)
+            { time: 20.5, text: "bouncing back", scene: SCENES.ASCENT },
+            { time: 22.5, text: "and one day" },
 
-            // Fade out
-            { time: 58, text: "", scene: SCENES.VOID }
+            // SCENE 4: WINGS
+            { time: 26.0, text: "I AM GONNA GROW WINGS", scene: SCENES.WINGS, flash: true },
+
+            // SCENE 5: HYSTERICAL
+            { time: 30.5, text: "a chemical reaction" },
+            { time: 34.5, text: "HYSTERICAL AND USELESS", scene: SCENES.HYSTERICAL, glitch: true },
+            { time: 40.5, text: "hysterical and useless", glitch: true },
+
+            // Outro
+            { time: 55.0, text: "", scene: SCENES.VOID }
         ];
 
         // ========================================
@@ -449,6 +583,7 @@
             createTunnelParticles();
             createRunnerParticles();
             createMainParticles();
+            createCometOrb();
 
             // Clock
             clock = new THREE.Clock();
@@ -527,7 +662,7 @@
 
             tunnelMaterial = new THREE.ShaderMaterial({
                 uniforms: {
-                    uSize: { value: 2.0 }
+                    uSize: { value: 1.5 }
                 },
                 vertexShader: `
                     attribute vec3 color;
@@ -540,7 +675,7 @@
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                         vDepth = -mvPosition.z;
                         
-                        float sizeAtten = 150.0 / max(-mvPosition.z, 1.0);
+                        float sizeAtten = 60.0 / max(-mvPosition.z, 1.0);
                         gl_PointSize = uSize * sizeAtten;
                         gl_Position = projectionMatrix * mvPosition;
                     }
@@ -552,9 +687,12 @@
                     void main() {
                         vec2 center = gl_PointCoord - vec2(0.5);
                         float dist = length(center);
-                        if (dist > 0.5) discard;
                         
-                        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                        // Soft circular falloff - key fix for round particles
+                        float alpha = 1.0 - smoothstep(0.0, 0.4, dist);
+                        alpha *= alpha; // Extra softness
+                        if (alpha < 0.01) discard;
+                        
                         float glow = clamp(100.0 / vDepth, 0.3, 1.0);
                         
                         gl_FragColor = vec4(vColor * glow, alpha * glow * 0.8);
@@ -590,30 +728,30 @@
                 const bodyPart = Math.random();
 
                 if (bodyPart < 0.4) {
-                    // Torso
-                    x = (Math.random() - 0.5) * 3;
-                    y = (Math.random() - 0.5) * 6;
-                    z = (Math.random() - 0.5) * 2;
+                    // Torso (3x scale)
+                    x = (Math.random() - 0.5) * 9;
+                    y = (Math.random() - 0.5) * 18;
+                    z = (Math.random() - 0.5) * 6;
                 } else if (bodyPart < 0.55) {
-                    // Head
-                    x = (Math.random() - 0.5) * 2;
-                    y = 4 + (Math.random() - 0.5) * 2;
-                    z = (Math.random() - 0.5) * 2;
+                    // Head (3x scale)
+                    x = (Math.random() - 0.5) * 6;
+                    y = 12 + (Math.random() - 0.5) * 6;
+                    z = (Math.random() - 0.5) * 6;
                 } else if (bodyPart < 0.75) {
-                    // Left leg area
-                    x = -1 + (Math.random() - 0.5) * 1.5;
-                    y = -3 - Math.random() * 5;
-                    z = (Math.random() - 0.5) * 2;
+                    // Left leg area (3x scale)
+                    x = -3 + (Math.random() - 0.5) * 4.5;
+                    y = -9 - Math.random() * 15;
+                    z = (Math.random() - 0.5) * 6;
                 } else if (bodyPart < 0.95) {
-                    // Right leg area
-                    x = 1 + (Math.random() - 0.5) * 1.5;
-                    y = -3 - Math.random() * 5;
-                    z = (Math.random() - 0.5) * 2;
+                    // Right leg area (3x scale)
+                    x = 3 + (Math.random() - 0.5) * 4.5;
+                    y = -9 - Math.random() * 15;
+                    z = (Math.random() - 0.5) * 6;
                 } else {
-                    // Arms
-                    x = (Math.random() > 0.5 ? 2 : -2) + (Math.random() - 0.5);
-                    y = 1 + (Math.random() - 0.5) * 3;
-                    z = (Math.random() - 0.5) * 2;
+                    // Arms (3x scale)
+                    x = (Math.random() > 0.5 ? 6 : -6) + (Math.random() - 0.5) * 3;
+                    y = 3 + (Math.random() - 0.5) * 9;
+                    z = (Math.random() - 0.5) * 6;
                 }
 
                 runnerPositions[i3] = x;
@@ -635,7 +773,7 @@
 
             runnerMaterial = new THREE.ShaderMaterial({
                 uniforms: {
-                    uSize: { value: 4.0 }
+                    uSize: { value: 6.0 }
                 },
                 vertexShader: `
                     attribute vec3 color;
@@ -646,7 +784,7 @@
                         vColor = color;
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                         
-                        float sizeAtten = 80.0 / max(-mvPosition.z, 1.0);
+                        float sizeAtten = 40.0 / max(-mvPosition.z, 1.0);
                         gl_PointSize = uSize * sizeAtten;
                         gl_Position = projectionMatrix * mvPosition;
                     }
@@ -657,9 +795,12 @@
                     void main() {
                         vec2 center = gl_PointCoord - vec2(0.5);
                         float dist = length(center);
-                        if (dist > 0.5) discard;
                         
-                        float alpha = 1.0 - smoothstep(0.1, 0.5, dist);
+                        // Soft circular falloff for round, glowing particles
+                        float alpha = 1.0 - smoothstep(0.0, 0.45, dist);
+                        alpha *= alpha; // Smoother edges
+                        if (alpha < 0.01) discard;
+                        
                         gl_FragColor = vec4(vColor, alpha);
                     }
                 `,
@@ -724,7 +865,7 @@
             particleMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     uTime: { value: 0 },
-                    uSize: { value: 3.0 }
+                    uSize: { value: 1.5 }
                 },
                 vertexShader: `
                     attribute vec3 color;
@@ -737,7 +878,7 @@
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                         vDepth = -mvPosition.z;
                         
-                        float sizeAtten = 200.0 / max(-mvPosition.z, 1.0);
+                        float sizeAtten = 80.0 / max(-mvPosition.z, 1.0);
                         gl_PointSize = uSize * sizeAtten;
                         gl_Position = projectionMatrix * mvPosition;
                     }
@@ -749,9 +890,12 @@
                     void main() {
                         vec2 center = gl_PointCoord - vec2(0.5);
                         float dist = length(center);
-                        if (dist > 0.5) discard;
                         
-                        float alpha = 1.0 - smoothstep(0.2, 0.5, dist);
+                        // Soft circular falloff - round glowing particles
+                        float alpha = 1.0 - smoothstep(0.0, 0.4, dist);
+                        alpha = alpha * alpha; // Extra softness for glow effect
+                        if (alpha < 0.01) discard;
+                        
                         float glow = clamp(80.0 / vDepth, 0.2, 1.0);
                         
                         gl_FragColor = vec4(vColor * glow, alpha * glow);
@@ -768,43 +912,114 @@
         }
 
         // ========================================
-        // Wing Shape Generator
+        // Comet Orb for Ascent Scene
+        // ========================================
+        function createCometOrb() {
+            // Simple pure white orb - clean loading screen look
+            cometOrb = new THREE.Group();
+
+            // Core ONLY - pure white, solid, sharp
+            const coreGeometry = new THREE.SphereGeometry(3, 16, 16);
+            const coreMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: false
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            cometOrb.add(core);
+
+            // Position offscreen initially
+            cometOrb.position.set(0, -100, 0);
+            cometOrb.visible = false;
+
+            scene.add(cometOrb);
+        }
+
+        // ========================================
+        // Wing Shape Generator - Clear Angel Wings Shape
+        // Designed to match reference image silhouette
         // ========================================
         function generateWingTargets(time) {
             const count = CONFIG.particleCount;
-            const wingSpan = CONFIG.wingSpan;
-            const wingHeight = CONFIG.wingHeight;
+
+            // Wing dimensions (larger and clearer)
+            const wingWidth = 55;   // Total wingspan per side
+            const wingHeight = 40;  // Vertical extent
+            const wingDepth = 8;    // Z depth for 3D effect
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
 
+                // Determine which wing (left = -1, right = +1)
                 const side = i < count / 2 ? -1 : 1;
                 const wingIndex = i < count / 2 ? i : i - count / 2;
                 const particlesPerWing = count / 2;
 
-                const row = Math.floor(wingIndex / (particlesPerWing / 12));
-                const indexInRow = wingIndex % Math.floor(particlesPerWing / 12);
-                const t = indexInRow / (particlesPerWing / 12);
+                // Use parametric t along the wing (0 = root, 1 = tip)
+                const t = wingIndex / particlesPerWing;
 
-                const featherCurve = Math.sin(t * Math.PI);
+                // Create multiple feather "rows" that fan out
+                const numRows = 25;  // Number of feather rows
+                const row = Math.floor(t * numRows);
+                const posInRow = (t * numRows) % 1;
 
-                const x = side * (t * wingSpan * featherCurve + t * 5);
+                // === WING SHAPE: Curved edge with fanning feathers ===
+                // The wing curves from top-inner to bottom-outer like in the reference
 
-                const flapPhase = Math.sin(time * 2) * 0.4;
-                const baseHeight = Math.sin(t * Math.PI) * wingHeight;
-                const flapOffset = t * flapPhase * 5;
-                const rowOffset = (row - 6) * 0.8;
-                const y = baseHeight + flapOffset + rowOffset;
+                // Row angle: top rows point more upward, bottom rows point more downward
+                // Range: from +30° (top) to -60° (bottom)
+                const rowProgress = row / numRows;
+                const rowAngle = (0.5 - rowProgress * 1.5); // radians, ~30° to -60°
 
-                const z = -Math.cos(t * Math.PI * 0.5) * 3 - row * 0.3;
+                // Feather length: longer at middle, shorter at top and bottom edges
+                // Creates the classic wing silhouette curve
+                const lengthCurve = Math.sin(rowProgress * Math.PI); // 0->1->0
+                const extraLength = rowProgress < 0.5
+                    ? rowProgress * 0.8  // Upper feathers grow
+                    : (1 - rowProgress) * 0.3; // Lower feathers shrink faster
+                const featherLength = (0.3 + lengthCurve * 0.7 + extraLength) * wingWidth;
 
-                const jitterX = Math.sin(particlePhases[i] + time) * 0.3;
-                const jitterY = Math.cos(particlePhases[i] + time * 1.3) * 0.3;
-                const jitterZ = Math.sin(particlePhases[i] * 2 + time * 0.7) * 0.2;
+                // Position along the feather (0 = base, 1 = tip)
+                const featherPos = posInRow;
 
-                targetPositions[i3] = x + jitterX;
-                targetPositions[i3 + 1] = y + jitterY;
-                targetPositions[i3 + 2] = z + jitterZ;
+                // Calculate base position (where feather attaches)
+                // This creates the curved inner edge of the wing
+                const baseX = 3 + rowProgress * 8;  // Slight spread from center
+                const baseY = wingHeight * 0.4 - rowProgress * wingHeight * 0.8;  // Top to bottom
+
+                // Calculate feather tip position using angle
+                const tipX = baseX + Math.cos(rowAngle) * featherLength;
+                const tipY = baseY + Math.sin(rowAngle) * featherLength * 0.5;
+
+                // Interpolate along the feather
+                let x = baseX + (tipX - baseX) * featherPos;
+                let y = baseY + (tipY - baseY) * featherPos;
+
+                // Add slight curve to each feather (bows downward slightly)
+                const featherCurve = Math.sin(featherPos * Math.PI) * 2 * (1 - rowProgress * 0.5);
+                y -= featherCurve;
+
+                // Z depth: outer feathers are further back, creates 3D bowl shape
+                let z = -featherPos * wingDepth * (0.5 + rowProgress * 0.5);
+
+                // Add density variation within feathers for natural look
+                const densityJitter = 0.8;
+                x += (Math.random() - 0.5) * densityJitter;
+                y += (Math.random() - 0.5) * densityJitter;
+                z += (Math.random() - 0.5) * densityJitter * 0.5;
+
+                // Apply side (left/right wing)
+                x = side * x;
+
+                // Center the wings vertically
+                y += 5;
+
+                // Very subtle shimmer
+                const shimmerX = Math.sin(particlePhases[i] + time * 0.2) * 0.1;
+                const shimmerY = Math.cos(particlePhases[i] + time * 0.15) * 0.1;
+
+                targetPositions[i3] = x + shimmerX;
+                targetPositions[i3 + 1] = y + shimmerY;
+                targetPositions[i3 + 2] = z;
             }
         }
 
@@ -940,19 +1155,161 @@
             targetCameraRotationX = -0.15;
         }
 
+        // ========================================
+        // ASCENT Scene - Particles reverse, Comet rises
+        // ========================================
+        function updateAscent(deltaTime, time) {
+            const count = CONFIG.particleCount;
+            const sceneTime = time - sceneStartTime;
+
+            // Initialize ascent on first frame
+            if (!ascentInitialized) {
+                // Reverse all particle velocities - shoot upward!
+                for (let i = 0; i < count; i++) {
+                    const i3 = i * 3;
+
+                    // Reverse Y velocity and boost it upward
+                    velocities[i3 + 1] = Math.abs(velocities[i3 + 1]) + 30 + Math.random() * 40;
+
+                    // Add some horizontal spread
+                    velocities[i3] = (Math.random() - 0.5) * 10;
+                    velocities[i3 + 2] = (Math.random() - 0.5) * 10;
+                }
+
+                // Reset comet
+                cometOrbY = -60;
+                cometOrb.visible = true;
+                ascentInitialized = true;
+                cameraShake = 0.5;
+            }
+
+            // Update particles - shooting upward
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+
+                // Keep upward momentum with slight deceleration
+                velocities[i3 + 1] *= 0.998;
+
+                // Add slight upward gravity (reverse physics)
+                velocities[i3 + 1] += 5 * deltaTime;
+
+                positions[i3] += velocities[i3] * deltaTime;
+                positions[i3 + 1] += velocities[i3 + 1] * deltaTime;
+                positions[i3 + 2] += velocities[i3 + 2] * deltaTime;
+
+                // Recycle particles that go too high
+                if (positions[i3 + 1] > 150) {
+                    positions[i3 + 1] = -50;
+                    velocities[i3 + 1] = 30 + Math.random() * 30;
+                    positions[i3] = (Math.random() - 0.5) * 50;
+                    positions[i3 + 2] = (Math.random() - 0.5) * 50;
+                }
+
+                // Dampen horizontal
+                velocities[i3] *= 0.99;
+                velocities[i3 + 2] *= 0.99;
+            }
+
+            particleGeometry.attributes.position.needsUpdate = true;
+
+            // Comet Orb - shooting upward fast
+            const cometSpeed = 80 + sceneTime * 40; // Accelerating aggressively
+            cometOrbY += cometSpeed * deltaTime;
+            cometOrb.position.set(0, cometOrbY, 0);
+
+            // AGGRESSIVE Squash & Stretch - Warp Drive Effect
+            const maxTime = 3.0; // Faster squeeze
+            const t = Math.min(sceneTime / maxTime, 1.0); // Normalized 0-1
+
+            // Scale X/Z (Thickness): Lerp from 1.0 down to 0.02 (needle thin)
+            const squashXZ = THREE.MathUtils.lerp(1.0, 0.02, t);
+
+            // Scale Y (Length): Lerp from 1.0 up to 30.0 (long laser streak)
+            const stretchY = THREE.MathUtils.lerp(1.0, 30.0, t);
+
+            // Apply with glitchy pulse
+            const pulseScale = 1 + Math.sin(time * 25) * 0.08;
+            cometOrb.scale.set(
+                squashXZ * pulseScale,
+                stretchY * pulseScale,
+                squashXZ * pulseScale
+            );
+
+            // STRICT Camera Lock + G-Force Shake
+            targetCameraY = cometOrbY;
+            targetCameraRotationX = 0.2;
+            cameraShake = 0.4; // Continuous shake for G-force vibration
+
+            // Post-processing - CLEAN white orb, NO RGB split
+            grayscalePass.uniforms['amount'].value = THREE.MathUtils.lerp(
+                grayscalePass.uniforms['amount'].value, 0.0, deltaTime * 2
+            );
+            bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, 1.0, deltaTime * 4);
+            // DISABLE RGB shift - keep orb pure white!
+            rgbShiftPass.uniforms['amount'].value = 0;
+
+            grainOverlay.classList.remove('active');
+
+            // Visibility
+            runnerParticles.visible = false;
+            tunnelParticles.visible = false;
+            particles.visible = true;
+            cometOrb.visible = true;
+        }
+
         function updateWings(deltaTime, time) {
             const count = CONFIG.particleCount;
+            const sceneTime = time - sceneStartTime;
 
             generateWingTargets(time);
+
+            // === PHASE 1: GATHER (0 - 0.8s) ===
+            // All particles rush toward center (0,0,0)
+            const gatherDuration = 0.8;
+
+            // === PHASE 2: GROW (0.8s - 2.5s) ===
+            // Wings expand outward from center
+            const growStart = 0.8;
+            const growDuration = 1.7;
+
+            // Calculate phase progress
+            const gatherProgress = Math.min(sceneTime / gatherDuration, 1.0);
+            const growProgress = sceneTime > growStart
+                ? Math.min((sceneTime - growStart) / growDuration, 1.0)
+                : 0;
+
+            // Easing functions for smoother motion
+            const easeOutQuad = (t) => t * (2 - t);
+            const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+            const gatherEased = easeOutQuad(gatherProgress);
+            const growEased = easeInOutCubic(growProgress);
 
             for (let i = 0; i < count; i++) {
                 const i3 = i * 3;
 
-                const lerpSpeed = 3 * deltaTime;
+                // During gather phase: lerp toward center (0,0,0)
+                // During grow phase: lerp toward wing targets scaled by growth
 
-                positions[i3] = THREE.MathUtils.lerp(positions[i3], targetPositions[i3], lerpSpeed);
-                positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], targetPositions[i3 + 1], lerpSpeed);
-                positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], targetPositions[i3 + 2], lerpSpeed);
+                if (sceneTime < growStart) {
+                    // GATHER PHASE: Pull everything toward center
+                    const lerpSpeed = 6 * deltaTime; // Fast gathering
+                    positions[i3] = THREE.MathUtils.lerp(positions[i3], 0, lerpSpeed);
+                    positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], 0, lerpSpeed);
+                    positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], 0, lerpSpeed);
+                } else {
+                    // GROW PHASE: Expand from center to wing shape
+                    const lerpSpeed = 4 * deltaTime;
+
+                    // Scale targets by growth progress
+                    const scaledTargetX = targetPositions[i3] * growEased;
+                    const scaledTargetY = targetPositions[i3 + 1] * growEased;
+                    const scaledTargetZ = targetPositions[i3 + 2] * growEased;
+
+                    positions[i3] = THREE.MathUtils.lerp(positions[i3], scaledTargetX, lerpSpeed);
+                    positions[i3 + 1] = THREE.MathUtils.lerp(positions[i3 + 1], scaledTargetY, lerpSpeed);
+                    positions[i3 + 2] = THREE.MathUtils.lerp(positions[i3 + 2], scaledTargetZ, lerpSpeed);
+                }
 
                 velocities[i3] = 0;
                 velocities[i3 + 1] = 0;
@@ -961,10 +1318,11 @@
 
             particleGeometry.attributes.position.needsUpdate = true;
 
+            // Enhanced bloom for majestic wing glow
             grayscalePass.uniforms['amount'].value = THREE.MathUtils.lerp(
                 grayscalePass.uniforms['amount'].value, 0.0, deltaTime * 2
             );
-            bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, 1.5, deltaTime * 2);
+            bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, 2.0, deltaTime * 2);
             rgbShiftPass.uniforms['amount'].value *= 0.95;
 
             grainOverlay.classList.remove('active');
@@ -972,6 +1330,7 @@
             runnerParticles.visible = false;
             tunnelParticles.visible = false;
             particles.visible = true;
+            cometOrb.visible = false; // Hide comet from previous scene
 
             targetCameraY = 0;
             targetCameraRotationX = 0;
@@ -1097,21 +1456,49 @@
             if (currentScene === newScene) return;
 
             console.log(`Switching to scene: ${newScene}`);
+
+            // Toggle CapCut old film mode for RUNNER scene
+            if (newScene === SCENES.RUNNER) {
+                document.body.classList.add('capcut-mode');
+            } else {
+                document.body.classList.remove('capcut-mode');
+            }
+
+            // Reset scene-specific states
+            if (newScene === SCENES.ASCENT) {
+                ascentInitialized = false;
+            }
+            if (currentScene === SCENES.ASCENT && newScene !== SCENES.ASCENT) {
+                cometOrb.visible = false;
+            }
+
             currentScene = newScene;
             sceneStartTime = clock.getElapsedTime();
 
             sceneIndicator.textContent = `Scene: ${newScene.toUpperCase()}`;
         }
-
         // ========================================
         // Lyric Display
         // ========================================
         function showLyric(text, options = {}) {
-            lyricElement.textContent = text;
-            lyricElement.className = 'visible';
+            // 1. Reset: Remove class to stop animation
+            lyricElement.classList.remove('visible');
+            lyricElement.classList.remove('glitch');
+            lyricElement.classList.remove('intense');
 
+            // 2. Force Reflow: This forces the browser to realize the class is gone
+            void lyricElement.offsetWidth;
+
+            // 3. Set Text & Restart: Add class back to trigger animation from 0%
+            lyricElement.textContent = text;
+            lyricElement.classList.add('visible');
+
+            // Apply specific effects
             if (options.glitch) {
                 lyricElement.classList.add('glitch');
+            }
+            if (options.intense) {
+                lyricElement.classList.add('intense');
             }
         }
 
@@ -1162,17 +1549,25 @@
                 // Create trail effect by not fully clearing
                 renderer.autoClear = false;
 
-                // Semi-transparent black overlay for trails
+                // Semi-transparent black overlay for trails (lower = longer smear)
                 const trailCanvas = renderer.domElement;
                 const ctx = trailCanvas.getContext('webgl2') || trailCanvas.getContext('webgl');
                 if (ctx) {
                     // Use WebGL clear with alpha
                     renderer.setClearColor(0x000000, CONFIG.trailOpacity);
                     renderer.clear();
+
+                    // Zoom blur effect - scale the canvas slightly for rush effect
+                    const zoomScale = CONFIG.zoomBlurScale;
+                    camera.fov = THREE.MathUtils.lerp(camera.fov, 75 + Math.sin(time * 3) * 2, deltaTime * 5);
+                    camera.updateProjectionMatrix();
                 }
             } else {
                 renderer.autoClear = true;
                 renderer.setClearColor(0x000000, 1);
+                // Reset FOV when not in runner scene
+                camera.fov = THREE.MathUtils.lerp(camera.fov, 75, deltaTime * 3);
+                camera.updateProjectionMatrix();
             }
 
             if (isRunning) {
@@ -1182,6 +1577,9 @@
                         break;
                     case SCENES.COLLAPSE:
                         updateCollapse(deltaTime, time);
+                        break;
+                    case SCENES.ASCENT:
+                        updateAscent(deltaTime, time);
                         break;
                     case SCENES.WINGS:
                         updateWings(deltaTime, time);
@@ -1221,9 +1619,20 @@
             isRunning = true;
 
             startOverlay.classList.add('hidden');
+
+            // Enable CapCut old film mode for RUNNER intro
+            document.body.classList.add('capcut-mode');
+
             clock.start();
 
-            console.log('Experience started!');
+            // Play audio
+            audioPlayer.currentTime = 0;
+            audioPlayer.play().catch(err => {
+                console.warn('Audio playback failed:', err);
+                console.log('Please ensure "audio/letdown.mp3" exists in the project folder.');
+            });
+
+            console.log('Experience started with audio!');
 
             LYRIC_SEQUENCE.forEach(lyric => {
                 setTimeout(() => executeLyric(lyric), lyric.time * 1000);
